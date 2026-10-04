@@ -15,6 +15,7 @@ namespace CopilotGameBarBridge
 
         private XboxGameBarWidget _widget;
         private bool _initialized;
+        private bool _initializing;
         private WebView2 _popupView;
 
         public WidgetPage()
@@ -41,10 +42,15 @@ namespace CopilotGameBarBridge
             }
         }
 
-        private async void WidgetPage_Loaded(object sender, RoutedEventArgs e)
+        private async void WidgetPage_Loaded(object sender, RoutedEventArgs e) => await InitializeChatAsync();
+
+        // Safe to call again after a failure: "Try again" lands here until initialization succeeds.
+        private async System.Threading.Tasks.Task InitializeChatAsync()
         {
-            if (_initialized) return;
-            _initialized = true;
+            if (_initialized || _initializing) return;
+            _initializing = true;
+            ErrorPanel.Visibility = Visibility.Collapsed;
+            LoadingPanel.Visibility = Visibility.Visible;
 
             try
             {
@@ -52,9 +58,20 @@ namespace CopilotGameBarBridge
             }
             catch (Exception ex)
             {
+                // A WebView2 whose initialization failed can't be initialized again, so swap in a fresh one for the retry.
+                var parent = (Panel)ChatView.Parent;
+                var index = parent.Children.IndexOf(ChatView);
+                parent.Children.RemoveAt(index);
+                ChatView = new WebView2();
+                parent.Children.Insert(index, ChatView);
+
+                _initializing = false;
                 ShowError("The Microsoft Edge WebView2 runtime isn't available (" + ex.Message + ").");
                 return;
             }
+
+            _initializing = false;
+            _initialized = true;
 
             var core = ChatView.CoreWebView2;
             core.Settings.AreDefaultContextMenusEnabled = true;
@@ -149,9 +166,13 @@ namespace CopilotGameBarBridge
             if (ChatView.CanGoBack) ChatView.GoBack();
         }
 
-        private void Reload_Click(object sender, RoutedEventArgs e)
+        private async void Reload_Click(object sender, RoutedEventArgs e)
         {
-            if (ChatView.CoreWebView2 == null) return;
+            if (!_initialized)
+            {
+                await InitializeChatAsync();
+                return;
+            }
             if (ErrorPanel.Visibility == Visibility.Visible) ChatView.Source = CopilotHome;
             else ChatView.Reload();
         }

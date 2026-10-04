@@ -32,7 +32,8 @@ namespace CopilotGameBarBridge
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            if (e.Parameter is XboxGameBarWidgetActivatedEventArgs args)
+            // Construct the widget once, on launch activation; repeat activations reuse it.
+            if (_widget == null && e.Parameter is XboxGameBarWidgetActivatedEventArgs args && args.IsLaunchActivation)
             {
                 _widget = new XboxGameBarWidget(args, Window.Current.CoreWindow, this.Frame);
                 _widget.PinningSupported = true;

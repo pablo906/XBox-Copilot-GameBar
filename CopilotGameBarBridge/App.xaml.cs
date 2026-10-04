@@ -21,9 +21,14 @@ namespace CopilotGameBarBridge
         {
             if (args is XboxGameBarWidgetActivatedEventArgs widgetArgs)
             {
-                var frame = Window.Current.Content as Frame ?? new Frame();
-                Window.Current.Content = frame;
-                frame.Navigate(typeof(WidgetPage), widgetArgs);
+                // Game Bar re-activates the widget (e.g. via URI) without relaunching it; only build the page on the
+                // first, launch activation so the existing page and its XboxGameBarWidget are kept.
+                if (widgetArgs.IsLaunchActivation)
+                {
+                    var frame = Window.Current.Content as Frame ?? new Frame();
+                    Window.Current.Content = frame;
+                    frame.Navigate(typeof(WidgetPage), widgetArgs);
+                }
                 Window.Current.Activate();
                 return;
             }

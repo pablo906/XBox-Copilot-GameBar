@@ -1,0 +1,134 @@
+name: Build and release
+
+# Pushing a tag like v0.2.0 builds a signed sideload package and publishes it
+# as a GitHub Release. Pull requests and manual runs build the same package
+# and keep it as a workflow artifact, without publishing anything.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - 'CopilotGameBarBridge/**'
+      - 'CopilotGameBarBridge.sln'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    env:
+      # Signing certificate, stored as repository secrets (never committed).
+      # See README "Publishing a release" for how to create them.
+      SIGNING_CERT_PFX_BASE64: ${{ secrets.SIGNING_CERT_PFX_BASE64 }}
+      SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the package version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $v = "${{ github.ref_name }}".TrimStart('v')
+          } else {
+            $v = "0.0.${{ github.run_number }}"
+          }
+          if ($v -notmatch '^\d+(\.\d+){0,3}$') { throw "Tag must look like v1.2.3 (got '$v')" }
+          $parts = @($v.Split('.'))
+          while ($parts.Count -lt 4) { $parts += '0' }
+          $full = $parts -join '.'
+          "version=$full" >> $env:GITHUB_OUTPUT
+          Write-Host "Package version $full"
+
+      - name: Prepare signing certificate
+        id: cert
+        shell: pwsh
+        run: |
+          $pfxPath = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+          if ($env:SIGNING_CERT_PFX_BASE64) {
+            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:SIGNING_CERT_PFX_BASE64))
+            $password = $env:SIGNING_CERT_PASSWORD
+          } else {
+            Write-Host "::warning::SIGNING_CERT_PFX_BASE64 is not set, so this build is signed with a throwaway certificate. Users will have to trust a new certificate for every release."
+            $password = [Guid]::NewGuid().ToString('N')
+            $tmp = New-SelfSignedCertificate -Type Custom -Subject 'CN=CopilotGameBarBridge' `
+              -KeyUsage DigitalSignature -FriendlyName 'Copilot Game Bar Bridge (CI)' `
+              -CertStoreLocation 'Cert:\CurrentUser\My' `
+              -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
+            Export-PfxCertificate -Cert $tmp -FilePath $pfxPath `
+              -Password (ConvertTo-SecureString $password -AsPlainText -Force) | Out-Null
+          }
+          Write-Host "::add-mask::$password"
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($pfxPath, $password)
+          "subject=$($cert.Subject)" >> $env:GITHUB_OUTPUT
+          "path=$pfxPath" >> $env:GITHUB_OUTPUT
+          "password=$password" >> $env:GITHUB_OUTPUT
+          Write-Host "Signing as $($cert.Subject)"
+
+      # The package Publisher must match the certificate subject exactly, and the
+      # version comes from the tag. Only this CI checkout is changed.
+      - name: Stamp manifest with publisher and version
+        shell: pwsh
+        run: |
+          $path = 'CopilotGameBarBridge/Package.appxmanifest'
+          [xml]$xml = Get-Content $path -Raw
+          $xml.Package.Identity.Publisher = '${{ steps.cert.outputs.subject }}'
+          $xml.Package.Identity.Version = '${{ steps.version.outputs.version }}'
+          $xml.Save((Resolve-Path $path))
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build sideload package
+        shell: pwsh
+        run: |
+          msbuild CopilotGameBarBridge.sln /restore /m `
+            /p:Configuration=Release /p:Platform=x64 `
+            /p:AppxBundle=Never `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxPackageDir="$env:GITHUB_WORKSPACE\out\\" `
+            /p:AppxPackageSigningEnabled=true `
+            /p:PackageCertificateKeyFile="${{ steps.cert.outputs.path }}" `
+            /p:PackageCertificatePassword="${{ steps.cert.outputs.password }}"
+          if ($LASTEXITCODE -ne 0) { throw "msbuild failed" }
+
+      - name: Collect release files
+        id: collect
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem out -Recurse -Filter Add-AppDevPackage.ps1 | Select-Object -First 1
+          if (-not $installer) { throw "No sideload package folder was produced" }
+          $pkgDir = $installer.Directory.FullName
+          Get-ChildItem $pkgDir -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+          $dist = New-Item -ItemType Directory -Force dist
+          $name = "CopilotGameBarBridge_${{ steps.version.outputs.version }}_x64"
+          Compress-Archive -Path "$pkgDir\*" -DestinationPath "$dist\$name.zip"
+          Get-ChildItem $pkgDir -Filter *.msix | Copy-Item -Destination $dist
+          Get-ChildItem $pkgDir -Filter *.cer  | Copy-Item -Destination "$dist\CopilotGameBarBridge.cer"
+          "name=$name" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.collect.outputs.name }}
+          path: dist/*
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          ## Install
+
+          1. Download **${{ steps.collect.outputs.name }}.zip** below and extract it.
+          2. Right-click **Install.ps1** and choose **Run with PowerShell**.
+          3. Approve the prompt to trust the signing certificate (first install only).
+          4. Press **Win+G**, open the Widget menu, and choose **Copilot Bridge**.
+
+          Full steps and troubleshooting: see the README.
+          "@
+          gh release create "${{ github.ref_name }}" dist/* --title "${{ github.ref_name }}" --notes $notes --verify-tag

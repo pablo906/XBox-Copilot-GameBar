@@ -11,7 +11,22 @@ An Xbox Game Bar widget that runs the full Microsoft Copilot chat (copilot.micro
 
 The widget never reads Copilot credentials, tokens, cookies, or chat history; they stay inside the WebView2 profile.
 
-## Prerequisites
+## Install (no Visual Studio needed)
+
+1. Open the [latest release](https://github.com/pablo906/XBox-Copilot-GameBar/releases/latest) and download the `CopilotGameBarBridge_<version>_x64.zip` file.
+2. Extract the zip to a folder.
+3. Right-click `Install.ps1` and choose **Run with PowerShell**. If Windows asks whether to change the execution policy, answer **Y**.
+4. On the first install, the script asks to trust the app's signing certificate. Approve it (this needs an administrator prompt). The script also installs the frameworks the app depends on.
+5. Press `Win+G`, open the Widget menu, and choose `Copilot Bridge`.
+6. Sign in to Copilot once inside the widget, then chat.
+
+To update, install the newer release the same way. To remove it, uninstall **Copilot Game Bar Bridge** from Settings > Apps.
+
+The app is signed with the project's own self-signed certificate, not one issued by a certificate authority, which is why Windows asks you to trust it. Only trust it if you trust this repository.
+
+## Build from source
+
+### Prerequisites
 
 - Windows 11
 - Xbox Game Bar
@@ -20,7 +35,7 @@ The widget never reads Copilot credentials, tokens, cookies, or chat history; th
   - Windows 11 SDK 10.0.26100
 - Windows Developer Mode enabled
 
-## Build and install
+### Build and install
 
 1. Open `CopilotGameBarBridge.sln` in Visual Studio 2022.
 2. Allow NuGet restore.
@@ -31,6 +46,36 @@ The widget never reads Copilot credentials, tokens, cookies, or chat history; th
 7. Sign in to Copilot once inside the widget, then chat.
 
 If the package identity publisher does not match your local development certificate, Visual Studio will offer to create/use a temporary development certificate during deployment.
+
+## Publishing a release
+
+Pushing a version tag builds a signed package on GitHub Actions and attaches it to a GitHub Release:
+
+```powershell
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The workflow lives in `.github/workflows/release.yml`. Pull requests that touch the app also run it, so a broken build shows up before a release; those runs keep the package as a workflow artifact and publish nothing.
+
+### Signing certificate (one-time setup)
+
+Windows only installs sideloaded packages signed by a certificate the PC trusts. The release build signs with a certificate stored in two repository secrets:
+
+| Secret | Value |
+| --- | --- |
+| `SIGNING_CERT_PFX_BASE64` | The `.pfx` file, base64-encoded |
+| `SIGNING_CERT_PASSWORD` | The `.pfx` password |
+
+To create them, run this once on your PC from the repo folder:
+
+```powershell
+.\scripts\New-SigningCertificate.ps1 -Subject "CN=Your Name"
+```
+
+It saves the `.pfx` in your user folder (outside the repo) and copies the base64 text to your clipboard. Add both secrets under **Settings > Secrets and variables > Actions**. Keep the `.pfx` somewhere safe and reuse it for every release; users who trusted it once won't be asked again. Never commit the `.pfx`.
+
+The workflow sets the package Publisher to the certificate's subject at build time, so the manifest in the repo doesn't need to change. If the secrets are missing, the build still works but signs with a throwaway certificate, so users would have to trust a new one each release.
 
 ## Next milestone
 

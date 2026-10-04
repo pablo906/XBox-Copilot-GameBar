@@ -11,6 +11,7 @@ on:
       - '.github/workflows/release.yml'
       - 'CopilotGameBarBridge/**'
       - 'CopilotGameBarBridge.sln'
+      - 'installer/**'
   workflow_dispatch:
 
 permissions:
@@ -105,10 +106,25 @@ jobs:
 
           $dist = New-Item -ItemType Directory -Force dist
           $name = "CopilotGameBarBridge_${{ steps.version.outputs.version }}_x64"
-          Compress-Archive -Path "$pkgDir\*" -DestinationPath "$dist\$name.zip"
-          Get-ChildItem $pkgDir -Filter *.msix | Copy-Item -Destination $dist
-          Get-ChildItem $pkgDir -Filter *.cer  | Copy-Item -Destination "$dist\CopilotGameBarBridge.cer"
+          Compress-Archive -Path "$pkgDir\*" -DestinationPath "$dist\$name-manual.zip"
           "name=$name" >> $env:GITHUB_OUTPUT
+          "pkgdir=$pkgDir" >> $env:GITHUB_OUTPUT
+
+      # One-file installer: trusts the certificate and installs the package with
+      # its dependencies, so users don't need to unzip or run PowerShell.
+      - name: Build Setup.exe
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup install failed" }
+          }
+          & $iscc /Qp "/DAppVersion=${{ steps.version.outputs.version }}" `
+            "/DPackageDir=${{ steps.collect.outputs.pkgdir }}" `
+            "/DOutputDir=$env:GITHUB_WORKSPACE\dist" installer\Setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+          Get-ChildItem dist | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
@@ -124,11 +140,11 @@ jobs:
           $notes = @"
           ## Install
 
-          1. Download **${{ steps.collect.outputs.name }}.zip** below and extract it.
-          2. Right-click **Install.ps1** and choose **Run with PowerShell**.
-          3. Approve the prompt to trust the signing certificate (first install only).
+          1. Download **CopilotGameBarBridge-Setup.exe** below and run it.
+          2. If Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway**.
+          3. Approve the administrator prompt, then click through the installer.
           4. Press **Win+G**, open the Widget menu, and choose **Copilot Bridge**.
 
-          Full steps and troubleshooting: see the README.
+          The ``-manual.zip`` is the same app for installing by hand with ``Install.ps1``. See the README for details.
           "@
           gh release create "${{ github.ref_name }}" dist/* --title "${{ github.ref_name }}" --notes $notes --verify-tag

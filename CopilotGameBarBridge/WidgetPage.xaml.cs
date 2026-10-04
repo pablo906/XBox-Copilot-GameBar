@@ -238,13 +238,15 @@ namespace CopilotGameBarBridge
                 await InitializeChatAsync();
                 return;
             }
-            if (ErrorPanel.Visibility == Visibility.Visible) ChatView.Source = CopilotHome;
+            // Navigate the core directly: setting Source to the URL it already holds (the page that just
+            // failed to load) is ignored, so Try again would do nothing.
+            if (ErrorPanel.Visibility == Visibility.Visible) ChatView.CoreWebView2?.Navigate(CopilotHome.AbsoluteUri);
             else ChatView.Reload();
         }
 
         private void Home_Click(object sender, RoutedEventArgs e)
         {
-            if (ChatView.CoreWebView2 != null) ChatView.Source = CopilotHome;
+            ChatView.CoreWebView2?.Navigate(CopilotHome.AbsoluteUri);
         }
 
         private void ClosePopup_Click(object sender, RoutedEventArgs e) => ClosePopupsFrom(_popups.Count - 1);

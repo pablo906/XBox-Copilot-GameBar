@@ -36,7 +36,7 @@
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Assets\Square44x44Logo.png" /><None Include="Assets\Square150x150Logo.png" /><None Include="Assets\StoreLogo.png" /><None Include="Assets\Wide310x150Logo.png" />
+    <Content Include="Assets\Square44x44Logo.png" /><Content Include="Assets\Square150x150Logo.png" /><Content Include="Assets\StoreLogo.png" /><Content Include="Assets\Wide310x150Logo.png" /><Content Include="Assets\SplashScreen.png" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
 </Project>

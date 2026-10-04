@@ -21,6 +21,10 @@ namespace CopilotGameBarBridge
         {
             // WinUI 2's WebView2 has no DefaultBackgroundColor property; this keeps it dark (not white) while pages load.
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "FF171717");
+            // Sign in with the account you use for Windows instead of typing it again. WinUI 2's WebView2 can't take
+            // CoreWebView2EnvironmentOptions, so this is the browser flag behind AllowSingleSignOnUsingOSPrimaryAccount.
+            // It also needs the enterpriseCloudSSO capability in the manifest.
+            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=msSingleSignOnOSForPrimaryAccountIsShared");
             InitializeComponent();
             Loaded += WidgetPage_Loaded;
         }

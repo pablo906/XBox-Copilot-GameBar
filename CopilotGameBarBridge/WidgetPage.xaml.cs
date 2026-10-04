@@ -146,19 +146,28 @@ namespace CopilotGameBarBridge
         private async void OpenPopup(WebView2 opener, CoreWebView2NewWindowRequestedEventArgs args)
         {
             var deferral = args.GetDeferral();
+            WebView2 popup = null;
             try
             {
                 // Drop anything stacked above the requesting page; it stays open underneath the new popup.
                 ClosePopupsFrom(opener == null ? 0 : _popups.IndexOf(opener) + 1);
 
                 // A new window must be a fresh, never-navigated WebView. Same app, same default environment and profile.
-                var popup = new WebView2();
+                popup = new WebView2();
                 PopupHost.Children.Add(popup);
                 _popups.Add(popup);
                 PopupLayer.Visibility = Visibility.Visible;
                 PopupTitle.Text = args.Uri;
 
                 await popup.EnsureCoreWebView2Async();
+
+                // The overlay is visible while that runs, so the user may have closed this popup already.
+                if (!_popups.Contains(popup))
+                {
+                    args.Handled = true;
+                    return;
+                }
+
                 var core = popup.CoreWebView2 ?? throw new InvalidOperationException("Popup WebView2 didn't initialize.");
                 core.WindowCloseRequested += (s, _) => ClosePopupsFrom(_popups.IndexOf(popup));
                 core.DocumentTitleChanged += (s, _) => { if (TopPopup == popup) PopupTitle.Text = s.DocumentTitle; };
@@ -169,9 +178,13 @@ namespace CopilotGameBarBridge
             }
             catch
             {
-                // Fall back to navigating the requesting view rather than spawning an external window.
-                ClosePopupsFrom(opener == null ? 0 : _popups.IndexOf(opener) + 1);
                 args.Handled = true;
+
+                // Dismissed while starting: treat as cancelled and leave the requesting view and other popups alone.
+                if (popup != null && !_popups.Contains(popup)) return;
+
+                // Otherwise fall back to navigating the requesting view rather than spawning an external window.
+                if (popup != null) ClosePopupsFrom(_popups.IndexOf(popup));
                 (opener ?? ChatView).CoreWebView2?.Navigate(args.Uri);
             }
             finally

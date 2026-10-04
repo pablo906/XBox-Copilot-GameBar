@@ -1,0 +1,14 @@
+# Visual Studio / UWP build output
+.vs/
+bin/
+obj/
+AppPackages/
+BundleArtifacts/
+*.user
+*.suo
+*.pfx
+*.appx
+*.msix
+*.appxbundle
+*.msixbundle
+packages/

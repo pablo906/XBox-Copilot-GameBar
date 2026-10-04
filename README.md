@@ -1,17 +1,15 @@
-# Copilot Game Bar Bridge MVP
+# Copilot Game Bar Bridge
 
-A minimal Xbox Game Bar widget that lets you compose a prompt in Win+G and open the installed unified Microsoft Copilot app. It copies the prompt to the clipboard by default and attempts to prefill Copilot.
+An Xbox Game Bar widget that runs the full Microsoft Copilot chat (copilot.microsoft.com) inside the widget window, so you can ask questions without leaving your game.
 
-## Important limitation
+## How it works
 
-Microsoft documents the Game Bar SDK and Windows URI launching, but does not publish a supported API for third-party apps to send a prompt into the consumer unified Copilot app or submit it automatically. This MVP therefore:
+- The chat is hosted in a WebView2 (WinUI 2) that fills the widget and resizes with it.
+- Sign-in popups open as an overlay inside the widget instead of a separate window behind the game.
+- The browser profile lives in the app's local data folder, so you stay signed in between sessions.
+- A slim toolbar offers Back, Reload, New chat, and Open in the Copilot app.
 
-1. Copies the prompt to the clipboard.
-2. Tries the locally registered `ms-copilot:` URI.
-3. Tries an observed query-prefill form (`ms-copilot:chat?q=...`) that is not a documented public contract.
-4. Falls back to the Copilot web app if the installed app cannot be launched.
-
-The widget never reads Copilot credentials, tokens, cookies, or chat history.
+The widget never reads Copilot credentials, tokens, cookies, or chat history; they stay inside the WebView2 profile.
 
 ## Prerequisites
 
@@ -30,10 +28,10 @@ The widget never reads Copilot credentials, tokens, cookies, or chat history.
 4. Build and deploy with `Ctrl+F5`.
 5. Press `Win+G`.
 6. Open Widget Menu and choose `Copilot Bridge`.
-7. Type a prompt and select `Open Copilot`.
+7. Sign in to Copilot once inside the widget, then chat.
 
 If the package identity publisher does not match your local development certificate, Visual Studio will offer to create/use a temporary development certificate during deployment.
 
 ## Next milestone
 
-Add a user-initiated screenshot button and append the saved image path to the prompt workflow. Avoid automatic capture or game-memory access.
+Add a user-initiated screenshot button that attaches the capture to the chat. Avoid automatic capture or game-memory access.

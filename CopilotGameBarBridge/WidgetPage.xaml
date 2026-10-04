@@ -1,16 +1,73 @@
-<Page x:Class="CopilotGameBarBridge.WidgetPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="#171717">
-  <Grid Padding="14">
-    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <StackPanel Grid.Row="0" Spacing="4">
-      <TextBlock Text="Copilot Bridge" FontSize="20" FontWeight="SemiBold" Foreground="White"/>
-      <TextBlock Text="Compose here, then open the unified Copilot app." Foreground="#BDBDBD" TextWrapping="Wrap"/>
-    </StackPanel>
-    <TextBox x:Name="PromptBox" Grid.Row="1" Margin="0,12,0,10" AcceptsReturn="True" TextWrapping="Wrap" PlaceholderText="Ask about the game, paste context, or describe what is on screen..."/>
-    <CheckBox x:Name="CopyFirstCheckBox" Grid.Row="2" Content="Copy prompt to clipboard before opening Copilot" IsChecked="True" Foreground="White"/>
-    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
-      <Button Content="Open Copilot" Click="OpenCopilot_Click" Style="{StaticResource AccentButtonStyle}"/>
-      <Button Content="Copy" Click="Copy_Click"/>
-      <Button Content="Clear" Click="Clear_Click"/>
-    </StackPanel>
+<Page x:Class="CopilotGameBarBridge.WidgetPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+      Background="#171717">
+  <Page.Resources>
+    <Style x:Key="ToolbarButton" TargetType="Button">
+      <Setter Property="Width" Value="32"/>
+      <Setter Property="Height" Value="28"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Foreground" Value="#D0D0D0"/>
+      <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+  </Page.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+
+    <!-- Slim toolbar: the chat itself gets the rest of the widget. -->
+    <Grid Grid.Row="0" Background="#1F1F1F" Padding="4,2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <StackPanel Orientation="Horizontal">
+        <Button x:Name="BackButton" Style="{StaticResource ToolbarButton}" Content="&#xE72B;" ToolTipService.ToolTip="Back" Click="Back_Click" IsEnabled="False"/>
+        <Button Style="{StaticResource ToolbarButton}" Content="&#xE72C;" ToolTipService.ToolTip="Reload" Click="Reload_Click"/>
+        <Button Style="{StaticResource ToolbarButton}" Content="&#xE80F;" ToolTipService.ToolTip="New chat" Click="Home_Click"/>
+      </StackPanel>
+      <TextBlock x:Name="StatusText" Grid.Column="1" Margin="8,0" VerticalAlignment="Center" FontSize="12" Foreground="#9A9A9A" TextTrimming="CharacterEllipsis" Text="Copilot"/>
+      <Button Grid.Column="2" Style="{StaticResource ToolbarButton}" Content="&#xE8A7;" ToolTipService.ToolTip="Open in the Copilot app" Click="OpenExternal_Click"/>
+    </Grid>
+
+    <Grid Grid.Row="1">
+      <!-- Modern Chromium-based view. Profile (and so sign-in) lives in the app's LocalFolder and survives restarts. -->
+      <muxc:WebView2 x:Name="ChatView"/>
+
+      <!-- Sign-in popups (Microsoft account, Google, etc.) open here instead of a separate window outside Game Bar. -->
+      <Grid x:Name="PopupLayer" Visibility="Collapsed" Background="#171717">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid Background="#2A2A2A" Padding="8,2">
+          <TextBlock x:Name="PopupTitle" VerticalAlignment="Center" FontSize="12" Foreground="#D0D0D0" TextTrimming="CharacterEllipsis" Margin="0,0,36,0"/>
+          <Button HorizontalAlignment="Right" Style="{StaticResource ToolbarButton}" Content="&#xE711;" ToolTipService.ToolTip="Close" Click="ClosePopup_Click"/>
+        </Grid>
+        <Grid x:Name="PopupHost" Grid.Row="1"/>
+      </Grid>
+
+      <StackPanel x:Name="LoadingPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+        <ProgressRing IsActive="True" Width="32" Height="32"/>
+        <TextBlock Text="Loading Copilot..." Foreground="#9A9A9A" HorizontalAlignment="Center"/>
+      </StackPanel>
+
+      <StackPanel x:Name="ErrorPanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="24" MaxWidth="360">
+        <TextBlock Text="Couldn't load Copilot" FontSize="16" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center"/>
+        <TextBlock x:Name="ErrorText" Foreground="#BDBDBD" TextWrapping="Wrap" TextAlignment="Center"/>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+          <Button Content="Try again" Click="Reload_Click" Style="{StaticResource AccentButtonStyle}"/>
+          <Button Content="Open Copilot app" Click="OpenExternal_Click"/>
+        </StackPanel>
+      </StackPanel>
+    </Grid>
   </Grid>
 </Page>

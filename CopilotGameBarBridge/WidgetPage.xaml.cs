@@ -1,18 +1,27 @@
 using Microsoft.Gaming.XboxGameBar;
+using Microsoft.Web.WebView2.Core;
 using System;
-using Windows.ApplicationModel.DataTransfer;
-using Windows.Foundation;
 using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
+using WebView2 = Microsoft.UI.Xaml.Controls.WebView2;
 
 namespace CopilotGameBarBridge
 {
     public sealed partial class WidgetPage : Page
     {
+        private static readonly Uri CopilotHome = new Uri("https://copilot.microsoft.com/");
+
         private XboxGameBarWidget _widget;
-        public WidgetPage() { InitializeComponent(); }
+        private bool _initialized;
+        private WebView2 _popupView;
+
+        public WidgetPage()
+        {
+            InitializeComponent();
+            Loaded += WidgetPage_Loaded;
+        }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
@@ -25,33 +34,132 @@ namespace CopilotGameBarBridge
             }
         }
 
-        private void CopyPrompt()
+        private async void WidgetPage_Loaded(object sender, RoutedEventArgs e)
         {
-            var package = new DataPackage();
-            package.SetText(PromptBox.Text ?? string.Empty);
-            Clipboard.SetContent(package);
-            Clipboard.Flush();
-        }
+            if (_initialized) return;
+            _initialized = true;
 
-        private async void OpenCopilot_Click(object sender, RoutedEventArgs e)
-        {
-            var prompt = (PromptBox.Text ?? string.Empty).Trim();
-            if (CopyFirstCheckBox.IsChecked == true) CopyPrompt();
-
-            // The installed unified Copilot currently registers ms-copilot on many systems.
-            // Query-prefill parameters are not a documented public contract, so failure falls back
-            // to opening Copilot without a query, then to the web app.
-            bool opened = false;
-            if (!string.IsNullOrWhiteSpace(prompt))
+            try
             {
-                var uri = new Uri("ms-copilot:chat?q=" + Uri.EscapeDataString(prompt));
-                opened = await Launcher.LaunchUriAsync(uri);
+                await ChatView.EnsureCoreWebView2Async();
             }
-            if (!opened) opened = await Launcher.LaunchUriAsync(new Uri("ms-copilot:"));
-            if (!opened) await Launcher.LaunchUriAsync(new Uri("https://copilot.cloud.microsoft/"));
+            catch (Exception ex)
+            {
+                ShowError("The Microsoft Edge WebView2 runtime isn't available (" + ex.Message + ").");
+                return;
+            }
+
+            var core = ChatView.CoreWebView2;
+            core.Settings.AreDefaultContextMenusEnabled = true;
+            core.Settings.IsStatusBarEnabled = false;
+            core.NewWindowRequested += Core_NewWindowRequested;
+            core.DocumentTitleChanged += (s, _) => StatusText.Text = string.IsNullOrEmpty(s.DocumentTitle) ? "Copilot" : s.DocumentTitle;
+            core.ProcessFailed += (s, args) => ShowError("The chat view stopped unexpectedly (" + args.ProcessFailedKind + ").");
+
+            ChatView.NavigationStarting += (s, args) =>
+            {
+                ErrorPanel.Visibility = Visibility.Collapsed;
+                LoadingPanel.Visibility = Visibility.Visible;
+            };
+            ChatView.NavigationCompleted += ChatView_NavigationCompleted;
+
+            ChatView.Source = CopilotHome;
         }
 
-        private void Copy_Click(object sender, RoutedEventArgs e) => CopyPrompt();
-        private void Clear_Click(object sender, RoutedEventArgs e) => PromptBox.Text = string.Empty;
+        private void ChatView_NavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs args)
+        {
+            LoadingPanel.Visibility = Visibility.Collapsed;
+            BackButton.IsEnabled = ChatView.CanGoBack;
+
+            if (!args.IsSuccess && args.WebErrorStatus != CoreWebView2WebErrorStatus.OperationCanceled)
+            {
+                ShowError("Check your connection and try again (" + args.WebErrorStatus + ").");
+                return;
+            }
+
+            // Put the keyboard in the chat box's page so typing works as soon as the widget opens.
+            ChatView.Focus(FocusState.Programmatic);
+        }
+
+        // Sign-in flows open popups. Without this they'd open as separate windows outside Game Bar,
+        // so host them in an overlay inside the widget and keep window.opener working.
+        private async void Core_NewWindowRequested(CoreWebView2 sender, CoreWebView2NewWindowRequestedEventArgs args)
+        {
+            var deferral = args.GetDeferral();
+            try
+            {
+                // A new window must be a fresh, never-navigated WebView, so build one per popup.
+                ClosePopup();
+                var popup = new WebView2 { DefaultBackgroundColor = Windows.UI.Color.FromArgb(255, 0x17, 0x17, 0x17) };
+                PopupHost.Children.Add(popup);
+                _popupView = popup;
+                await popup.EnsureCoreWebView2Async();
+                popup.CoreWebView2.WindowCloseRequested += (s, _) => ClosePopup();
+                popup.CoreWebView2.DocumentTitleChanged += (s, _) => PopupTitle.Text = s.DocumentTitle;
+                popup.CoreWebView2.NewWindowRequested += (s, nested) =>
+                {
+                    // Nested popups just navigate in place.
+                    nested.Handled = true;
+                    s.Navigate(nested.Uri);
+                };
+
+                PopupTitle.Text = args.Uri;
+                PopupLayer.Visibility = Visibility.Visible;
+                args.NewWindow = popup.CoreWebView2;
+                args.Handled = true;
+            }
+            catch
+            {
+                // Fall back to navigating the main view rather than spawning an external window.
+                args.Handled = true;
+                sender.Navigate(args.Uri);
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+        }
+
+        private void ClosePopup()
+        {
+            if (_popupView == null) return;
+            PopupLayer.Visibility = Visibility.Collapsed;
+            PopupHost.Children.Remove(_popupView);
+            _popupView.Close();
+            _popupView = null;
+            ChatView.Focus(FocusState.Programmatic);
+        }
+
+        private void ShowError(string message)
+        {
+            LoadingPanel.Visibility = Visibility.Collapsed;
+            ErrorText.Text = message;
+            ErrorPanel.Visibility = Visibility.Visible;
+        }
+
+        private void Back_Click(object sender, RoutedEventArgs e)
+        {
+            if (ChatView.CanGoBack) ChatView.GoBack();
+        }
+
+        private void Reload_Click(object sender, RoutedEventArgs e)
+        {
+            if (ChatView.CoreWebView2 == null) return;
+            if (ErrorPanel.Visibility == Visibility.Visible) ChatView.Source = CopilotHome;
+            else ChatView.Reload();
+        }
+
+        private void Home_Click(object sender, RoutedEventArgs e)
+        {
+            if (ChatView.CoreWebView2 != null) ChatView.Source = CopilotHome;
+        }
+
+        private void ClosePopup_Click(object sender, RoutedEventArgs e) => ClosePopup();
+
+        private async void OpenExternal_Click(object sender, RoutedEventArgs e)
+        {
+            if (!await Launcher.LaunchUriAsync(new Uri("ms-copilot:")))
+                await Launcher.LaunchUriAsync(CopilotHome);
+        }
     }
 }

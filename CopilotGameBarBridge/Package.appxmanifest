@@ -7,19 +7,19 @@
   <Resources><Resource Language="x-generate" /></Resources>
   <Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="CopilotGameBarBridge.App">
-      <uap:VisualElements DisplayName="Copilot Bridge" Description="Open unified Copilot from Game Bar" BackgroundColor="#171717" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
+      <uap:VisualElements DisplayName="Copilot Bridge" Description="Chat with Copilot inside Game Bar" BackgroundColor="#171717" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\Wide310x150Logo.png" BackgroundColor="#171717" />
       </uap:VisualElements>
       <Extensions>
         <uap3:Extension Category="windows.appExtension">
-          <uap3:AppExtension Name="microsoft.gameBarUIExtension" Id="CopilotBridgeWidget" PublicFolder="Public" DisplayName="Copilot Bridge" Description="Compose a prompt and open unified Microsoft Copilot">
+          <uap3:AppExtension Name="microsoft.gameBarUIExtension" Id="CopilotBridgeWidget" PublicFolder="Public" DisplayName="Copilot Bridge" Description="Chat with Microsoft Copilot without leaving your game">
             <uap3:Properties>
               <GameBarWidget Type="Standard">
                 <HomeMenuVisible>true</HomeMenuVisible>
                 <PinningSupported>true</PinningSupported>
                 <Window>
-                  <Size><Width>420</Width><Height>360</Height></Size>
+                  <Size><Width>460</Width><Height>720</Height></Size>
                   <ResizeSupported><Horizontal>true</Horizontal><Vertical>true</Vertical></ResizeSupported>
                 </Window>
               </GameBarWidget>

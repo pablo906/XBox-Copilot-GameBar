@@ -19,6 +19,8 @@ namespace CopilotGameBarBridge
 
         public WidgetPage()
         {
+            // WinUI 2's WebView2 has no DefaultBackgroundColor property; this keeps it dark (not white) while pages load.
+            Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "FF171717");
             InitializeComponent();
             Loaded += WidgetPage_Loaded;
         }
@@ -90,7 +92,7 @@ namespace CopilotGameBarBridge
             {
                 // A new window must be a fresh, never-navigated WebView, so build one per popup.
                 ClosePopup();
-                var popup = new WebView2 { DefaultBackgroundColor = Windows.UI.Color.FromArgb(255, 0x17, 0x17, 0x17) };
+                var popup = new WebView2();
                 PopupHost.Children.Add(popup);
                 _popupView = popup;
                 await popup.EnsureCoreWebView2Async();

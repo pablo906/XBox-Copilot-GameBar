@@ -40,7 +40,7 @@
 
     <Grid Grid.Row="1">
       <!-- Modern Chromium-based view. Profile (and so sign-in) lives in the app's LocalFolder and survives restarts. -->
-      <muxc:WebView2 x:Name="ChatView" DefaultBackgroundColor="#171717"/>
+      <muxc:WebView2 x:Name="ChatView"/>
 
       <!-- Sign-in popups (Microsoft account, Google, etc.) open here instead of a separate window outside Game Bar. -->
       <Grid x:Name="PopupLayer" Visibility="Collapsed" Background="#171717">

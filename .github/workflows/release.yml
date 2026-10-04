@@ -107,6 +107,8 @@ jobs:
           $dist = New-Item -ItemType Directory -Force dist
           $name = "CopilotGameBarBridge_${{ steps.version.outputs.version }}_x64"
           Compress-Archive -Path "$pkgDir\*" -DestinationPath "$dist\$name-manual.zip"
+          # Fixed name for the installer script, which can't rename a wildcard match.
+          Get-ChildItem $pkgDir -Filter *.cer | Select-Object -First 1 | Copy-Item -Destination "$pkgDir\signing.cer"
           "name=$name" >> $env:GITHUB_OUTPUT
           "pkgdir=$pkgDir" >> $env:GITHUB_OUTPUT
 

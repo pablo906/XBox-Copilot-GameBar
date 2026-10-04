@@ -36,7 +36,8 @@ FinishedLabelNoIcons=Copilot Bridge is installed.%n%nPress Win+G, open the Widge
 
 [Files]
 Source: "{#PackageDir}\*.msix"; DestDir: "{tmp}\pkg"; Flags: ignoreversion
-Source: "{#PackageDir}\*.cer"; DestDir: "{tmp}"; DestName: "signing.cer"; Flags: ignoreversion
+; The workflow copies the package certificate to signing.cer next to the .msix.
+Source: "{#PackageDir}\signing.cer"; DestDir: "{tmp}"; Flags: ignoreversion
 Source: "{#PackageDir}\Dependencies\x64\*.appx"; DestDir: "{tmp}\pkg\deps"; Flags: ignoreversion
 Source: "Install-Package.ps1"; DestDir: "{tmp}"; Flags: ignoreversion
 

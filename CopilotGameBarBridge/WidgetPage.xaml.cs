@@ -3,6 +3,8 @@ using Microsoft.Web.WebView2.Core;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Data.Json;
 using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -16,6 +18,8 @@ namespace CopilotGameBarBridge
         private static readonly Uri CopilotHome = new Uri("https://copilot.microsoft.com/");
 
         private XboxGameBarWidget _widget;
+        private XboxGameBarAppTargetTracker _tracker;
+        private string _gameName;
         private bool _initialized;
         private bool _initializing;
         private bool _chatViewUsed;
@@ -42,7 +46,100 @@ namespace CopilotGameBarBridge
                 _widget = new XboxGameBarWidget(args, Window.Current.CoreWindow, this.Frame);
                 _widget.PinningSupported = true;
                 _widget.SettingsSupported = false;
+
+                _tracker = new XboxGameBarAppTargetTracker(_widget);
+                _tracker.TargetChanged += async (s, _) => await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, UpdateGame);
+                _tracker.SettingChanged += async (s, _) => await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, UpdateGame);
+                UpdateGame();
             }
+        }
+
+        // Current game from Game Bar's target tracker; null when tracking is off, nothing is targeted, or it isn't a game.
+        private void UpdateGame()
+        {
+            string name = null;
+            string hint = "Game context needs Game Bar to be open over a game";
+            try
+            {
+                if (_tracker != null)
+                {
+                    if (_tracker.Setting.ToString() == "Disabled")
+                    {
+                        hint = "Game tracking is turned off in Game Bar settings";
+                    }
+                    else
+                    {
+                        var target = _tracker.GetTarget();
+                        if (target != null && target.IsGame && !string.IsNullOrWhiteSpace(target.DisplayName))
+                        {
+                            name = target.DisplayName.Trim();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Tracking unavailable: leave the button disabled.
+            }
+
+            _gameName = name;
+            GameButton.IsEnabled = name != null;
+            ToolTipService.SetToolTip(GameButton, name != null ? "Add \"I'm playing " + name + "\" to your question" : hint);
+        }
+
+        // Only ever script the real Copilot chat page in the main view, never sign-in pages or popups.
+        private bool IsCopilotChat()
+        {
+            var core = ChatView.CoreWebView2;
+            if (core == null || ChatView.Visibility != Visibility.Visible) return false;
+            return Uri.TryCreate(core.Source, UriKind.Absolute, out var uri)
+                && uri.Scheme == "https" && uri.Host == "copilot.microsoft.com";
+        }
+
+        private async void GameContext_Click(object sender, RoutedEventArgs e)
+        {
+            var name = _gameName;
+            if (name == null) return;
+            var prefix = "I'm playing " + name + ". My question is: ";
+
+            string result = "unavailable";
+            if (IsCopilotChat() && PopupLayer.Visibility != Visibility.Visible)
+            {
+                // The prefix goes in as a JSON string literal, so any characters in the game name stay data.
+                var literal = JsonValue.CreateStringValue(prefix).Stringify();
+                var script = "(function(prefix){"
+                    + "var el=document.querySelector('textarea')||document.querySelector('[contenteditable=\"true\"]');"
+                    + "if(!el)return 'nocomposer';"
+                    + "var isText=el.tagName==='TEXTAREA';"
+                    + "var cur=isText?el.value:el.innerText;"
+                    + "if(cur.indexOf(prefix)===0)return 'present';"
+                    + "var old=/^I'm playing [\\s\\S]*?\\. My question is: /.exec(cur);"
+                    + "var rest=old?cur.slice(old[0].length):cur;"
+                    + "if(isText){var set=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set;"
+                    + "set.call(el,prefix+rest);el.dispatchEvent(new Event('input',{bubbles:true}));el.focus();}"
+                    + "else{el.focus();document.execCommand('selectAll');document.execCommand('insertText',false,prefix+rest);}"
+                    + "return 'ok';})(" + literal + ")";
+                try
+                {
+                    result = (await ChatView.CoreWebView2.ExecuteScriptAsync(script)).Trim('"');
+                }
+                catch
+                {
+                    result = "unavailable";
+                }
+            }
+
+            if (result == "ok" || result == "present")
+            {
+                StatusText.Text = result == "ok" ? "Added game context. Type your question and send." : "Game context is already in your question.";
+                return;
+            }
+
+            // Couldn't reach the chat box: hand over the text instead.
+            var data = new DataPackage();
+            data.SetText(prefix);
+            Clipboard.SetContent(data);
+            StatusText.Text = "Couldn't reach the chat box. Copied \"" + prefix.Trim() + "\" so you can paste it.";
         }
 
         private async void WidgetPage_Loaded(object sender, RoutedEventArgs e) => await InitializeChatAsync();

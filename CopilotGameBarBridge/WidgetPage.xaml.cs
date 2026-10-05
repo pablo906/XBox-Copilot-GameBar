@@ -86,7 +86,7 @@ namespace CopilotGameBarBridge
 
             _gameName = name;
             GameButton.IsEnabled = name != null;
-            ToolTipService.SetToolTip(GameButton, name != null ? "Add \"I'm playing " + name + "\" to your question" : hint);
+            ToolTipService.SetToolTip(GameHost, name != null ? "Add \"I'm playing " + name + "\" to your question" : hint);
         }
 
         // Only ever script the real Copilot chat page in the main view, never sign-in pages or popups.

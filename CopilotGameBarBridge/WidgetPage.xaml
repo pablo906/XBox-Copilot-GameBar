@@ -28,6 +28,7 @@
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
       <StackPanel Orientation="Horizontal">
         <Button x:Name="BackButton" Style="{StaticResource ToolbarButton}" Content="&#xE72B;" ToolTipService.ToolTip="Back" Click="Back_Click" IsEnabled="False"/>
@@ -35,7 +36,11 @@
         <Button Style="{StaticResource ToolbarButton}" Content="&#xE80F;" ToolTipService.ToolTip="New chat" Click="Home_Click"/>
       </StackPanel>
       <TextBlock x:Name="StatusText" Grid.Column="1" Margin="8,0" VerticalAlignment="Center" FontSize="12" Foreground="#9A9A9A" TextTrimming="CharacterEllipsis" Text="Copilot"/>
-      <Button Grid.Column="2" Style="{StaticResource ToolbarButton}" Content="&#xE8A7;" ToolTipService.ToolTip="Open in the Copilot app" Click="OpenExternal_Click"/>
+      <!-- A disabled button shows no tooltip, so the tooltip lives on this enabled wrapper. -->
+      <Grid x:Name="GameHost" Grid.Column="2" Background="Transparent">
+        <Button x:Name="GameButton" Style="{StaticResource ToolbarButton}" Content="&#xE7FC;" Click="GameContext_Click" IsEnabled="False"/>
+      </Grid>
+      <Button Grid.Column="3" Style="{StaticResource ToolbarButton}" Content="&#xE8A7;" ToolTipService.ToolTip="Open in the Copilot app" Click="OpenExternal_Click"/>
     </Grid>
 
     <Grid Grid.Row="1">

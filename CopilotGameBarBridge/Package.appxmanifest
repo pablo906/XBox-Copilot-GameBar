@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" IgnorableNamespaces="uap uap3 mp rescap">
-  <Identity Name="CopilotGameBarBridge.Local" Publisher="CN=LocalDeveloper" Version="0.1.0.0" />
+  <Identity Name="CopilotGameBarBridge.Local" Publisher="CN=LocalDeveloper" Version="0.1.1.0" />
   <mp:PhoneIdentity PhoneProductId="0e28469d-d4b5-4cdf-8d2e-15ef8bcf2387" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties><DisplayName>Copilot Game Bar Bridge</DisplayName><PublisherDisplayName>Local Developer</PublisherDisplayName><Logo>Assets\StoreLogo.png</Logo></Properties>
   <Dependencies><TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" /></Dependencies>

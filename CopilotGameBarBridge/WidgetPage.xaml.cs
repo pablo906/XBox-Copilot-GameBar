@@ -63,9 +63,11 @@ namespace CopilotGameBarBridge
             {
                 if (_tracker != null)
                 {
-                    if (_tracker.Setting.ToString() == "Disabled")
+                    if (_tracker.Setting != XboxGameBarAppTargetSetting.Enabled)
                     {
-                        hint = "Game tracking is turned off in Game Bar settings";
+                        hint = _tracker.Setting == XboxGameBarAppTargetSetting.DisabledByUser
+                            ? "Game tracking is turned off in Game Bar settings"
+                            : "Game tracking isn't available right now";
                     }
                     else
                     {
@@ -117,7 +119,9 @@ namespace CopilotGameBarBridge
                     + "var rest=old?cur.slice(old[0].length):cur;"
                     + "if(isText){var set=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set;"
                     + "set.call(el,prefix+rest);el.dispatchEvent(new Event('input',{bubbles:true}));el.focus();}"
-                    + "else{el.focus();document.execCommand('selectAll');document.execCommand('insertText',false,prefix+rest);}"
+                    + "else{el.focus();var want=prefix+rest;"
+                    + "if(!document.execCommand('selectAll')||!document.execCommand('insertText',false,want))return 'failed';"
+                    + "if(el.innerText.replace(/\\s+/g,' ').trim()!==want.replace(/\\s+/g,' ').trim())return 'failed';}"
                     + "return 'ok';})(" + literal + ")";
                 try
                 {
